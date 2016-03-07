@@ -1,24 +1,23 @@
-# go-check-mysql-msr
+# go-mackerel-plugin-msr
 
 ```
-$ ./check-mysql-msr
-MySQL Multi Source Replication OK: [O]main-db=io:Yes,sql:Yes,behind:0 user-db=io:Yes,sql:Yes,behind:0 
+$ ./mackerel-plugin-msr
+mysql-msr.behind.main-db\t0\ttime
+mysql-msr.behind.user-db\t0\ttime0 
 ```
 
 usage
 
 ```
-$ ./check-mysql-msr -h
+$ ./mackerel-plugin-msr -h
 Usage:
-  check-mysql-msr [OPTIONS]
+  mackerel-plugin-msr [OPTIONS]
 
 Application Options:
   -H, --host=     Hostname (localhost)
   -p, --port=     Port (3306)
   -u, --user=     Username (root)
   -P, --password= Password
-  -c, --critical= critical if uptime seconds is less than this number
-  -w, --warning=  warning if uptime seconds is less than this number
 
 Help Options:
   -h, --help      Show this help message
