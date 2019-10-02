@@ -1,27 +1,22 @@
-VERSION=0.0.1
+VERSION=0.0.2
+LDFLAGS=-ldflags "-X main.Version=${VERSION}"
+GO111MODULE=on
 
 all: mackerel-plugin-msr
 
 .PHONY: mackerel-plugin-msr
 
-gom:
-	go get -u github.com/mattn/gom
-
-bundle:
-	gom install
-
 mackerel-plugin-msr: mackerel-plugin-msr.go
-	gom build -o mackerel-plugin-msr
+	go build $(LDFLAGS) -o mackerel-plugin-msr
 
 linux: mackerel-plugin-msr.go
-	GOOS=linux GOARCH=amd64 gom build -o mackerel-plugin-msr
-
-fmt:
-	go fmt ./...
-
-dist:
-	git archive --format tgz HEAD -o mackerel-plugin-msr-$(VERSION).tar.gz --prefix mackerel-plugin-msr-$(VERSION)/
+	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o mackerel-plugin-msr
 
 clean:
-	rm -rf mackerel-plugin-msr mackerel-plugin-msr-*.tar.gz
+	rm -rf mackerel-plugin-msr
 
+tag:
+	git tag v${VERSION}
+	git push origin v${VERSION}
+	git push origin master
+	goreleaser --rm-dist

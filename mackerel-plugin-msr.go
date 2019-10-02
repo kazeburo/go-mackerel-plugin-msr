@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/jessevdk/go-flags"
 	"github.com/ziutek/mymysql/mysql"
 	_ "github.com/ziutek/mymysql/native"
-	"os"
-	"time"
 )
 
 type connectionOpts struct {
@@ -38,7 +39,7 @@ func _main() (st int) {
 
 	rows, _, err := db.Query("SELECT CHANNEL_NAME FROM performance_schema.replication_connection_status")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "couldn't execute query: %s\n",err)
+		fmt.Fprintf(os.Stderr, "couldn't execute query: %s\n", err)
 		return
 	}
 
@@ -50,22 +51,19 @@ func _main() (st int) {
 	now := int32(time.Now().Unix())
 	for _, row := range rows {
 		channelName := row.Str(0)
-		query := fmt.Sprintf("SHOW SLAVE STATUS FOR CHANNEL '%s'\n",channelName)
+		query := fmt.Sprintf("SHOW SLAVE STATUS FOR CHANNEL '%s'\n", channelName)
 		slaveRows, slaveRes, err := db.Query(query)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "couldn't execute query");
+			fmt.Fprintf(os.Stderr, "couldn't execute query")
 			return
 		}
 
 		idxSecondsBehindMaster := slaveRes.Map("Seconds_Behind_Master")
 		secondsBehindMaster := slaveRows[0].Int64(idxSecondsBehindMaster)
 
-		fmt.Printf("mysql-msr.behind.%s\t%d\t%d\n",channelName, secondsBehindMaster,now)
+		fmt.Printf("mysql-msr.behind.%s\t%d\t%d\n", channelName, secondsBehindMaster, now)
 	}
 
 	st = 0
 	return
 }
-
-
-
