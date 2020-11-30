@@ -1,5 +1,5 @@
 VERSION=0.0.2
-LDFLAGS=-ldflags "-X main.Version=${VERSION}"
+LDFLAGS=-ldflags "-X main.version=${VERSION}"
 GO111MODULE=on
 
 all: mackerel-plugin-msr
@@ -15,8 +15,10 @@ linux: mackerel-plugin-msr.go
 clean:
 	rm -rf mackerel-plugin-msr
 
+check:
+	go test ./...
+
 tag:
 	git tag v${VERSION}
 	git push origin v${VERSION}
 	git push origin master
-	goreleaser --rm-dist
