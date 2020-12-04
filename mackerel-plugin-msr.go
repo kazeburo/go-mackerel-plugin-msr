@@ -2,12 +2,10 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log"
 	"os"
 	"runtime"
-	"strconv"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -18,10 +16,15 @@ import (
 // Version by Makefile
 var version string
 
-type Opts struct {
+type opts struct {
 	mysqlflags.MyOpts
 	Timeout time.Duration `long:"timeout" default:"10s" description:"Timeout to connect mysql"`
 	Version bool          `short:"v" long:"version" description:"Show version"`
+}
+
+type slave struct {
+	ChannelName *string `mysqlvar:"Channel_Name"`
+	Behind      int64   `mysqlvar:"Seconds_Behind_Master"`
 }
 
 func main() {
@@ -29,7 +32,7 @@ func main() {
 }
 
 func _main() int {
-	opts := Opts{}
+	opts := opts{}
 	psr := flags.NewParser(&opts, flags.HelpFlag|flags.PassDoubleDash)
 	_, err := psr.Parse()
 	if opts.Version {
@@ -57,68 +60,9 @@ func _main() int {
 	defer cancel()
 	ch := make(chan error, 1)
 
-	behinds := map[string]int64{}
+	var slaves []slave
 	go func() {
-		rows, e := db.Query("SHOW SLAVE STATUS")
-		if e != nil {
-			ch <- e
-			return
-		}
-		defer rows.Close()
-
-		cols, e := rows.Columns()
-		if e != nil {
-			ch <- e
-			return
-		}
-		vals := make([]interface{}, len(cols))
-		idxChannelName := -1
-		idxSecondsBehindMaster := -1
-		for i, v := range cols {
-			vals[i] = new(sql.RawBytes)
-			if v == "Channel_Name" {
-				idxChannelName = i
-			}
-			if v == "Seconds_Behind_Master" {
-				idxSecondsBehindMaster = i
-			}
-		}
-		if idxSecondsBehindMaster < 0 {
-			ch <- fmt.Errorf("Could not find Seconds_Behind_Master in columns")
-			return
-		}
-
-		i := 0
-		for rows.Next() {
-			i++
-			e = rows.Scan(vals...)
-			if e != nil {
-				ch <- e
-				return
-			}
-			channelName := "-"
-			if idxChannelName >= 0 {
-				channelName = string(*vals[idxChannelName].(*sql.RawBytes))
-			}
-			strSecondsBehindMaster := string(*vals[idxSecondsBehindMaster].(*sql.RawBytes))
-			secondsBehindMaster, e := strconv.ParseInt(strSecondsBehindMaster, 10, 64)
-			if e != nil {
-				ch <- e
-				return
-			}
-			behinds[channelName] = secondsBehindMaster
-		}
-		if err := rows.Err(); err != nil {
-			ch <- err
-			return
-		}
-
-		if i == 0 {
-			ch <- fmt.Errorf("No replication settings")
-			return
-		}
-
-		ch <- nil
+		ch <- mysqlflags.Query(db, "SHOW SLAVE STATUS").Scan(&slaves)
 	}()
 
 	select {
@@ -133,8 +77,16 @@ func _main() int {
 		return 1
 	}
 
-	for n, behind := range behinds {
-		fmt.Printf("mysql-msr.behind.%s\t%d\t%d\n", n, behind, now)
+	if len(slaves) == 0 {
+		log.Printf("No replication settings")
+		return 1
+	}
+
+	for _, slave := range slaves {
+		if slave.ChannelName == nil {
+			*slave.ChannelName = "-"
+		}
+		fmt.Printf("mysql-msr.behind.%s\t%d\t%d\n", *slave.ChannelName, slave.Behind, now)
 	}
 
 	return 0
